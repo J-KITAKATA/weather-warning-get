@@ -35,8 +35,9 @@ async def ver(ctx):
 
 @bot.command()
 async def l(ctx):
+    msg = "View this page\n"
     l_url = "https://github.com/J-KITAKATA/weather-warning-get/blob/main/wng-list.txt"
-    await ctx.send(l_url)
+    await ctx.send(msg + l_url)
 
 @bot.command()
 async def wng(ctx, pref:str, area:str = ""):
