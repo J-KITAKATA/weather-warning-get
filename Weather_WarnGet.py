@@ -20,7 +20,7 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 # インテントの設定
 intents = discord.Intents.default()
 intents.guilds = True # サーバー（ギルド）の情報を取得
-intents.voice_states = True # ボイスチャンネルの入退室やミュート状態を監視。
+intents.members = True          # サーバーメンバーの情報を取得したい場合
 intents.messages = True # メッセージ関連のイベントを取得します。
 intents.message_content = True # メッセージの内容を取得します。プレフィックスによるコマンドを使う際に必要。
 
