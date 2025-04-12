@@ -4,3 +4,4 @@ python-dotenv
 requests
 xmltodict
 lxml
+html5lib
