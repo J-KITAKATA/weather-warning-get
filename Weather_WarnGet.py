@@ -30,14 +30,20 @@ bot = commands.Bot(command_prefix="w!", intents=intents)
 
 @bot.command()
 async def ver(ctx):
-    ctx.send("Ver.0.9.0")
+    V = "Ver.0.9.1"
+    await ctx.send(V)
 
 @bot.command()
 async def l(ctx):
-    ctx.send("EMPTY")
+    await ctx.send("EMPTY")
 
 @bot.command()
 async def wng(ctx, pref:str, area:str):
+
+    # 大文字に変換
+    pref = pref.upper()
+    area = area.upper()
+
     # キャッシュを保存するファイル名
     CACHE_FILE = "cache/main_cache.json"
     # フォルダを作成（すでにあればスルー）
@@ -326,6 +332,6 @@ async def wng(ctx, pref:str, area:str):
     else:
         outData = "該当する地域が見つかりませんでした。"
 
-    ctx.send(outData)
+    await ctx.send(outData)
 
 bot.run(TOKEN)
