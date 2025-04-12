@@ -1,5 +1,5 @@
 # Weather Warning Get
-Ver.0.9.2
+Ver.0.9.2    
 2025/4/12
 
 ## 概要
