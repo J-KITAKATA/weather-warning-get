@@ -1,5 +1,5 @@
 services:
-  - type: web
+  - type: worker
     name: Weather-Warning-Get
     env: python
     buildCommand: "pip install -r requirements.txt"
