@@ -137,11 +137,11 @@ def pros(url, area, n_time):
 
         # 注意報・警報・特別警報の出力部
         if atn_data:
-            p_data = p_data + f"注意報:{", ".join(atn_data)}\n"
+            p_data = p_data + f"注意報:{', '.join(atn_data)}\n"
         if warn_data:
-            p_data = p_data + f"警報:{", ".join(warn_data)}\n"
+            p_data = p_data + f"警報:{', '.join(warn_data)}\n"
         if S_warn_data:
-            p_data = p_data + f"特別警報:{", ".join(S_warn_data)}\n"
+            p_data = p_data + f"特別警報:{', '.join(S_warn_data)}\n"
         if not atn_data and not warn_data and not S_warn_data:
             p_data = p_data + safe_text + "\n"
 
@@ -199,11 +199,11 @@ def pros(url, area, n_time):
 
         # 注意報・警報・特別警報の出力部
         if atn_data:
-            p_data = p_data + f"注意報:{", ".join(atn_data)}\n"
+            p_data = p_data + f"注意報:{', '.join(atn_data)}\n"
         if warn_data:
-            p_data = p_data + f"警報:{", ".join(warn_data)}\n"
+            p_data = p_data + f"警報:{', '.join(warn_data)}\n"
         if S_warn_data:
-            p_data = p_data + f"特別警報:{", ".join(S_warn_data)}\n"
+            p_data = p_data + f"特別警報:{', '.join(S_warn_data)}\n"
         if not atn_data and not warn_data and not S_warn_data:
             p_data = p_data + safe_text + "\n"
 
@@ -261,11 +261,11 @@ def pros(url, area, n_time):
 
         # 注意報・警報・特別警報の出力部
         if atn_data:
-            p_data = p_data + f"注意報:{", ".join(atn_data)}\n"
+            p_data = p_data + f"注意報:{', '.join(atn_data)}\n"
         if warn_data:
-            p_data = p_data + f"警報:{", ".join(warn_data)}\n"
+            p_data = p_data + f"警報:{', '.join(warn_data)}\n"
         if S_warn_data:
-            p_data = p_data + f"特別警報:{", ".join(S_warn_data)}\n"
+            p_data = p_data + f"特別警報:{', '.join(S_warn_data)}\n"
         if not atn_data and not warn_data and not S_warn_data:
             p_data = p_data + safe_text + "\n"
 
@@ -323,11 +323,11 @@ def pros(url, area, n_time):
 
         # 注意報・警報・特別警報の出力部
         if atn_data:
-            p_data = p_data + f"注意報:{", ".join(atn_data)}\n"
+            p_data = p_data + f"注意報:{', '.join(atn_data)}\n"
         if warn_data:
-            p_data = p_data + f"警報:{", ".join(warn_data)}\n"
+            p_data = p_data + f"警報:{', '.join(warn_data)}\n"
         if S_warn_data:
-            p_data = p_data + f"特別警報:{", ".join(S_warn_data)}\n"
+            p_data = p_data + f"特別警報:{', '.join(S_warn_data)}\n"
         if not atn_data and not warn_data and not S_warn_data:
             p_data = p_data + safe_text + "\n"
 
@@ -380,11 +380,11 @@ def pros(url, area, n_time):
 
         # 注意報・警報・特別警報の出力部
         if atn_data:
-            p_data = p_data + f"注意報:{", ".join(atn_data)}\n"
+            p_data = p_data + f"注意報:{', '.join(atn_data)}\n"
         if warn_data:
-            p_data = p_data + f"警報:{", ".join(warn_data)}\n"
+            p_data = p_data + f"警報:{', '.join(warn_data)}\n"
         if S_warn_data:
-            p_data = p_data + f"特別警報:{", ".join(S_warn_data)}\n"
+            p_data = p_data + f"特別警報:{', '.join(S_warn_data)}\n"
         if not atn_data and not warn_data and not S_warn_data:
             p_data = p_data + safe_text + "\n"
 
@@ -437,11 +437,11 @@ def pros(url, area, n_time):
 
         # 注意報・警報・特別警報の出力部
         if atn_data:
-            p_data = p_data + f"注意報:{", ".join(atn_data)}\n"
+            p_data = p_data + f"注意報:{', '.join(atn_data)}\n"
         if warn_data:
-            p_data = p_data + f"警報:{", ".join(warn_data)}\n"
+            p_data = p_data + f"警報:{', '.join(warn_data)}\n"
         if S_warn_data:
-            p_data = p_data + f"特別警報:{", ".join(S_warn_data)}\n"
+            p_data = p_data + f"特別警報:{', '.join(S_warn_data)}\n"
         if not atn_data and not warn_data and not S_warn_data:
             p_data = p_data + safe_text + "\n"
 
@@ -494,11 +494,11 @@ def pros(url, area, n_time):
 
         # 注意報・警報・特別警報の出力部
         if atn_data:
-            p_data = p_data + f"注意報:{", ".join(atn_data)}\n"
+            p_data = p_data + f"注意報:{', '.join(atn_data)}\n"
         if warn_data:
-            p_data = p_data + f"警報:{", ".join(warn_data)}\n"
+            p_data = p_data + f"警報:{', '.join(warn_data)}\n"
         if S_warn_data:
-            p_data = p_data + f"特別警報:{", ".join(S_warn_data)}\n"
+            p_data = p_data + f"特別警報:{', '.join(S_warn_data)}\n"
         if not atn_data and not warn_data and not S_warn_data:
             p_data = p_data + safe_text + "\n"
 
@@ -551,11 +551,11 @@ def pros(url, area, n_time):
 
         # 注意報・警報・特別警報の出力部
         if atn_data:
-            p_data = p_data + f"注意報:{", ".join(atn_data)}\n"
+            p_data = p_data + f"注意報:{', '.join(atn_data)}\n"
         if warn_data:
-            p_data = p_data + f"警報:{", ".join(warn_data)}\n"
+            p_data = p_data + f"警報:{', '.join(warn_data)}\n"
         if S_warn_data:
-            p_data = p_data + f"特別警報:{", ".join(S_warn_data)}\n"
+            p_data = p_data + f"特別警報:{', '.join(S_warn_data)}\n"
         if not atn_data and not warn_data and not S_warn_data:
             p_data = p_data + safe_text + "\n"
 
@@ -608,11 +608,11 @@ def pros(url, area, n_time):
 
         # 注意報・警報・特別警報の出力部
         if atn_data:
-            p_data = p_data + f"注意報:{", ".join(atn_data)}\n"
+            p_data = p_data + f"注意報:{', '.join(atn_data)}\n"
         if warn_data:
-            p_data = p_data + f"警報:{", ".join(warn_data)}\n"
+            p_data = p_data + f"警報:{', '.join(warn_data)}\n"
         if S_warn_data:
-            p_data = p_data + f"特別警報:{", ".join(S_warn_data)}\n"
+            p_data = p_data + f"特別警報:{', '.join(S_warn_data)}\n"
         if not atn_data and not warn_data and not S_warn_data:
             p_data = p_data + safe_text + "\n"
 
@@ -665,11 +665,11 @@ def pros(url, area, n_time):
 
         # 注意報・警報・特別警報の出力部
         if atn_data:
-            p_data = p_data + f"注意報:{", ".join(atn_data)}\n"
+            p_data = p_data + f"注意報:{', '.join(atn_data)}\n"
         if warn_data:
-            p_data = p_data + f"警報:{", ".join(warn_data)}\n"
+            p_data = p_data + f"警報:{', '.join(warn_data)}\n"
         if S_warn_data:
-            p_data = p_data + f"特別警報:{", ".join(S_warn_data)}\n"
+            p_data = p_data + f"特別警報:{', '.join(S_warn_data)}\n"
         if not atn_data and not warn_data and not S_warn_data:
             p_data = p_data + safe_text + "\n"
 
@@ -722,11 +722,11 @@ def pros(url, area, n_time):
 
         # 注意報・警報・特別警報の出力部
         if atn_data:
-            p_data = p_data + f"注意報:{", ".join(atn_data)}\n"
+            p_data = p_data + f"注意報:{', '.join(atn_data)}\n"
         if warn_data:
-            p_data = p_data + f"警報:{", ".join(warn_data)}\n"
+            p_data = p_data + f"警報:{', '.join(warn_data)}\n"
         if S_warn_data:
-            p_data = p_data + f"特別警報:{", ".join(S_warn_data)}\n"
+            p_data = p_data + f"特別警報:{', '.join(S_warn_data)}\n"
         if not atn_data and not warn_data and not S_warn_data:
             p_data = p_data + safe_text + "\n"
 
