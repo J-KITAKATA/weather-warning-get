@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 
 # .envファイルを読み込む
 load_dotenv(dotenv_path="config/Weather_WrnGet.env")
+# Weather_WrnGet
 
 # 環境変数からトークンを取得
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -20,25 +21,28 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 # インテントの設定
 intents = discord.Intents.default()
 intents.guilds = True # サーバー（ギルド）の情報を取得
-intents.members = True          # サーバーメンバーの情報を取得したい場合
-intents.messages = True # メッセージ関連のイベントを取得します。
-intents.message_content = True # メッセージの内容を取得します。プレフィックスによるコマンドを使う際に必要。
+intents.members = True # サーバーメンバーの情報を取得したい場合
+intents.messages = True # メッセージ関連のイベントを取得。
+intents.message_content = True # メッセージの内容を取得。プレフィックスによるコマンドを使う際に必要。
 
 # コマンド検出用の接頭辞と、Botに付与する権限の設定
 bot = commands.Bot(command_prefix="w!", intents=intents)
 # 上記の "w!" がプレフィックス（コマンド開始の目印）
 
-@bot.command()
+@bot.command(brief = "Show Bot Version")
 async def ver(ctx):
-    V = "Ver.0.9.3"
+    V = "Ver.1.0.0"
     await ctx.send(V)
 
-@bot.command()
+@bot.command(brief = "Show list of wng arguments")
 async def l(ctx):
     l_url = "https://github.com/J-KITAKATA/weather-warning-get/blob/main/wng-list.txt"
     await ctx.send(l_url)
 
-@bot.command()
+@bot.command(
+        brief = "<pref:str> [area:str]",
+        help = "指定した都道府県（pref）と、任意で地域名（area）を指定して気象警報情報を取得\n引数の組み合わせについては'w!l'を参照"
+        )
 async def wng(ctx, pref:str, area:str = ""):
 
     # 大文字に変換
