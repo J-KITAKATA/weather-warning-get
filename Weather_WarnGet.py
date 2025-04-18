@@ -30,14 +30,13 @@ bot = commands.Bot(command_prefix="w!", intents=intents)
 
 @bot.command()
 async def ver(ctx):
-    V = "Ver.0.9.2"
+    V = "Ver.0.9.3"
     await ctx.send(V)
 
 @bot.command()
 async def l(ctx):
-    msg = "View this page\n"
     l_url = "https://github.com/J-KITAKATA/weather-warning-get/blob/main/wng-list.txt"
-    await ctx.send(msg + l_url)
+    await ctx.send(l_url)
 
 @bot.command()
 async def wng(ctx, pref:str, area:str = ""):
@@ -56,11 +55,9 @@ async def wng(ctx, pref:str, area:str = ""):
     # キャッシュ用の変数
     cached_data = None
     last_fetched_time = 0  # 最後にデータを取得した時刻（初期値: 0）
-    cache_duration = 630  # キャッシュ保持時間（秒）
 
     current_time = time.time() # 現在時刻
 
-    ids = [] # id用
     outData = None # 出力データ用
 
     # 地域・エリア(基本は都道府県)ごとのキーとコード
@@ -78,6 +75,7 @@ async def wng(ctx, pref:str, area:str = ""):
                 cached_data = None  # JSONが壊れていた場合はNoneに
                 last_fetched_time = 0  # 取得時刻もリセット
 
+    # 最後に情報を取得してから630秒経っていたら新しくダウンロードする
     if (current_time - last_fetched_time) > 630:
         print("新しいデータを取得中...") #debug
         # 気象庁のデータフィードURL
@@ -100,38 +98,44 @@ async def wng(ctx, pref:str, area:str = ""):
         print("キャッシュデータを使用") # debug
 
     # 取得したデータをtxtファイルに保存（デバッグやログ用）
-    with open("test_sample.txt", "w", encoding="utf-8") as f:
-        f.write(str(cached_data))
+    #with open("test_sample.txt", "w", encoding="utf-8") as f:
+    #    f.write(str(cached_data))
 
     # cached_dataの中身を処理
     # cached_data の構造を確認し、"id" を取り出す処理
     if cached_data:
 
-        # 本当は r はいらないけど、後から見たら忘れるから書く
-        # JSONファイルをUTF-8の文字コードに指定して読み込み
-        # dict型で処理したいからあえてJSONの再読み込みを実施
-        with open(CACHE_FILE, mode='r', encoding='utf-8') as f: 
-            cache_json = json.load(f) # JSON -> dict型
-
-        # cache_json 内のデータ（仮に data にリストが格納されていると仮定）
-        data_list = cache_json.get("data", [])
-
-        # "data" 内の各要素から "id" を取り出す
-        # 実際のデータは "feed":{"entry":[{}, {}]} の構造になっている
-        entries = data_list["feed"]["entry"]
-
-        # 条件に一致するエントリをフィルタリングし、"updated" フィールドで最新のものを取得
-        latest_entry = max(
-            (item for item in entries if "VPWW53" in item.get("id", "") and pref_id[pref] in item.get("id", "")),
-            key=lambda x: x.get("updated", ""),
-            default=None
-        )
-
-        # 最新エントリの "id" を取得
-        if latest_entry:
-            pref_url = latest_entry.get("id", None)
-        else:
+        # prefがpref_idに存在しないときに例外処理を実行させる
+        if pref not in pref_id:
             pref_url = None
+            pass
+
+        else:
+            # 本当は r はいらないけど、後から見たら忘れるから書く
+            # JSONファイルをUTF-8の文字コードに指定して読み込み
+            # dict型で処理したいからあえてJSONの再読み込みを実施
+            with open(CACHE_FILE, mode='r', encoding='utf-8') as f: 
+                cache_json = json.load(f) # JSON -> dict型
+
+            # cache_json 内のデータ（仮に data にリストが格納されていると仮定）
+            data_list = cache_json.get("data", [])
+
+            # "data" 内の各要素から "id" を取り出す
+            # 実際のデータは "feed":{"entry":[{}, {}]} の構造になっている
+            entries = data_list["feed"]["entry"]
+
+            # 条件に一致するエントリをフィルタリングし、"updated" フィールドで最新のものを取得
+            latest_entry = max(
+                (item for item in entries if "VPWW53" in item.get("id", "") and pref_id[pref] in item.get("id", "")),
+                key=lambda x: x.get("updated", ""),
+                default=None
+            )
+
+            # 最新エントリの "id" を取得
+            if latest_entry:
+                pref_url = latest_entry.get("id", None)
+            else:
+                pref_url = None
 
     if pref_url is None:
         print("該当するURLが見つかりませんでした。")
