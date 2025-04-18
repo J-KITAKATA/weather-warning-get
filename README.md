@@ -10,7 +10,14 @@ Discordでコマンドを入力することで気象庁(Japan Meteorological Age
 下のハイパーリンクからご自身にAdmin権限があるサーバーに追加することができます。   
 何かしらトラブルが起こらない限り当面の間は公開しておくつもりなので、常識の範囲内で活用していただければと思います。  
    
-[Discord Botを追加](https://discord.com/oauth2/authorize?client_id=1360467639440511106)
+[Discord Botを追加](https://discord.com/oauth2/authorize?client_id=1360467639440511106)   
+
+## 機能
+* 気象警報の情報を表示
+
+>[!WARNING]
+>表示される情報にはタイムラグがあり、災害時など緊急事態には、情報が遅れる可能性があります。迅速で正確な情報を得るために、<br>
+>気象庁の公式ホームページや、テレビ、ラジオなどの他のメディアを併用して、最新の情報をご確認ください。
 
 ## Change Log
 * Ver.0.9.0 (2025/4/12)：Prerelease
