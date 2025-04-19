@@ -29,9 +29,12 @@ intents.message_content = True # メッセージの内容を取得。プレフ�
 bot = commands.Bot(command_prefix="w!", intents=intents)
 # 上記の "w!" がプレフィックス（コマンド開始の目印）
 
+# 震度の情報
+e_Scale = {10:"震度1", 20:"震度2", 30:"震度3", 40:"震度4", 45:"震度5弱", 50:"震度5強", 55:"震度6弱", 60:"震度6強", 70:"震度7"}
+
 @bot.command(brief = "Show Bot Version")
 async def ver(ctx):
-    V = "Ver.1.0.0"
+    V = "Ver.1.1.0"
     await ctx.send(V)
 
 @bot.command(brief = "Show list of wng arguments")
@@ -110,7 +113,7 @@ async def wng(ctx, pref:str, area:str = ""):
     if cached_data:
 
         # prefがpref_idに存在しないときに例外処理を実行させる
-        if pref not in pref_id:
+        if pref not in  pref_id:
             pref_url = None
             pass
 
@@ -341,6 +344,119 @@ async def wng(ctx, pref:str, area:str = ""):
 
     else:
         outData = "該当する地域が見つかりませんでした。"
+
+    await ctx.send(outData)
+
+@bot.command(brief = "[sc:str]",
+             help = "scの引数に対して'U5-'を入力すると最大震度5弱以上の最新の地震情報を表示します。"
+             )
+async def eq(ctx, sc:str = ""):
+    eq_url = ""
+    sc = sc.upper()
+
+    # キャッシュ用の変数
+    cached_data = None
+    last_fetched_time = 0  # 最後にデータを取得した時刻（初期値: 0）
+    current_time = time.time() # 現在時刻
+
+    outData = None # 出力データ用
+
+    if sc == "" or sc == None:
+        # 最新の地震情報を取得
+        eq_url = "https://api.p2pquake.net/v2/history?codes=551&limit=1"
+
+        # キャッシュを保存するファイル名
+        E_CACHE_FILE = "cache/E_cache.json"
+        t = 5
+        h_msg = "**最新の地震情報**"
+
+    elif sc == "U5-":
+        # 最大震度5弱以上が観測された最新の地震情報を取得
+        eq_url = "https://api.p2pquake.net/v2/jma/quake?limit=1&order=-1&quake_type=DetailScale&min_scale=45"
+
+        # キャッシュを保存するファイル名
+        E_CACHE_FILE = "cache/E-U5_cache.json"
+        t = 15
+        h_msg = "**最新の最大震度5弱以上の地震情報**"
+
+    else:
+        # U5-以外の引数が呼ばれたときには処理を強制終了する
+        await ctx.send("情報が存在しません")
+        return
+
+    # フォルダを作成（すでにあればスルー）
+    os.makedirs(os.path.dirname(E_CACHE_FILE), exist_ok=True)
+
+    # キャッシュデータをファイルから読み込む
+    # 空でないか確認 and キャッシュファイルが存在するかチェック
+    if os.path.exists(E_CACHE_FILE) and os.path.getsize(E_CACHE_FILE) > 0:
+        with open(E_CACHE_FILE, "r", encoding="utf-8") as f:
+            try:
+                cache_content = json.load(f)  # JSONデータを読み込む
+                cached_data = cache_content.get("data")  # 保存されていたデータを取得
+                last_fetched_time = cache_content.get("timestamp", 0)  # 最後の取得時刻を取得（なければ0）
+            except json.JSONDecodeError: # JSONファイル読み込みエラー時の処理
+                cached_data = None  # JSONが壊れていた場合はNoneに
+                last_fetched_time = 0  # 取得時刻もリセット
+
+    # 最後に取得してから5秒経過していたら情報を取得する
+    if (current_time - last_fetched_time) > t:
+        print("(EQ_Mode)新しいデータを取得中...") #debug
+        feed_json = requests.get(eq_url).json() # JSONデータを取得
+        # キャッシュを更新
+        cached_data = feed_json
+        last_fetched_time = current_time
+
+        # キャッシュをファイルに保存
+        with open(E_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump({"timestamp": last_fetched_time, "data": cached_data}, f, ensure_ascii=False, indent=4)
+
+    elif (current_time - last_fetched_time) <= t:
+        print("(EQ_Mode)キャッシュデータを使用") # debug
+        
+    EQ_Name = cached_data[0]["earthquake"]["hypocenter"]["name"] # 震源地(震央)
+    Depth = cached_data[0]["earthquake"]["hypocenter"]["depth"] # 震源の深さ
+    Lat = cached_data[0]["earthquake"]["hypocenter"]["latitude"] # 緯度
+    Lon = cached_data[0]["earthquake"]["hypocenter"]["longitude"] # 経度
+    Mag = cached_data[0]["earthquake"]["hypocenter"]["magnitude"] # マグニチュード
+    M_Scale = cached_data[0]["earthquake"]["maxScale"] # 最大震度
+    Occ_time = cached_data[0]["earthquake"]["time"] # 発生時刻
+
+    # 震源の深さの情報を整理
+    if Depth == "0":
+        Depth = "ごく浅い"
+    elif Depth == "-1":
+        Depth = "不明"
+    elif Depth != "0" and Depth != "-1":
+        Depth = f"{Depth}km"
+    else:
+        Depth = "不明"
+
+    # 緯度・経度の情報を整理
+    if Lat == "-200" or Lon == "-200":
+        G_map = ""
+    elif Lat != "-200" and Lon != "-200":
+        G_map = f"[Google Map](https://www.google.com/maps?q={Lat},{Lon})"
+    else:
+        G_map = ""
+
+    # マグニチュードの情報を整理
+    if Mag == "-1":
+        Mag = "不明"
+    elif Mag != "-1":
+        Mag = f"M{Mag}"
+    else:
+        Mag = "不明"
+
+    # 最大震度の情報を整理
+    if M_Scale == "-1":
+        M_Scale = "不明"
+    elif M_Scale != "-1":
+        M_Scale = e_Scale[M_Scale]
+    else:
+        M_Scale = "不明"
+
+    outData = f"{h_msg}\n発生時刻：{Occ_time}\n震源地：{EQ_Name}\n震源の深さは{Depth}\nマグニチュードは{Mag}で、最大震度は{M_Scale}\n{G_map}"
 
     await ctx.send(outData)
 
