@@ -30,4 +30,5 @@ Discordでコマンドを入力することで気象庁(Japan Meteorological Age
 
 ## その他
 機能の追加やバグ発見などがあれば[Issues](https://github.com/J-KITAKATA/weather-warning-get/issues)で教えてください。
-見落としがない限り、大体2週間くらいで対応できると思います。
+見落としがない限り、大体2週間くらいで対応できると思います。   
+また、Release等で使用されている絵文字の使用ルールについては[こちら](https://github.com/J-KITAKATA/weather-warning-get/blob/main/Emoji_rule.md)をご覧ください。
