@@ -1,6 +1,6 @@
 # Weather Warning Get
-Ver.1.1.0  
-2025/4/20
+Ver.1.2.0  
+2025/4/22
 
 ## 概要
 Discordでコマンドを入力することで気象庁(Japan Meteorological Agency)が提供している情報を基に気象警報情報をチャット上に表示するBotの作成を目指した。   
@@ -27,6 +27,7 @@ Discordでコマンドを入力することで気象庁(Japan Meteorological Age
 * Ver.0.9.3 (2025/4/18)：Add exception handling
 * Ver.1.0.0 (2025/4/19)：リリース
 * Ver.1.1.0 (2025/4/20)：簡易的な地震の情報表示機能を追加
+* Ver.1.2.0 (2025/4/22)：簡易的な長周期地震動に関する情報表示機能を追加
 
 ## その他
 機能の追加やバグ発見などがあれば[Issues](https://github.com/J-KITAKATA/weather-warning-get/issues)で教えてください。
