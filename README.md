@@ -8,7 +8,8 @@ Discordでコマンドを入力することで気象庁(Japan Meteorological Age
 
 ## Discord Botの追加
 下のハイパーリンクからご自身にAdmin権限があるサーバーに追加することができます。   
-何かしらトラブルが起こらない限り当面の間は公開しておくつもりなので、常識の範囲内で活用していただければと思います。  
+何かしらトラブルが起こらない限り当面の間は公開しておくつもりなので、常識の範囲内で活用していただければと思います。   
+また、コマンドの一覧については[Wiki](https://github.com/J-KITAKATA/weather-warning-get/wiki)やヘルプコマンドを参照していただければと思います。   
    
 [Discord Botを追加](https://discord.com/oauth2/authorize?client_id=1360467639440511106)   
 
