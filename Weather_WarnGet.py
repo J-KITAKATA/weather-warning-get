@@ -10,6 +10,8 @@ import pref_data as p_d
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
+import re
+import math
 
 # .envファイルを読み込む
 load_dotenv(dotenv_path="config/Weather_WrnGet.env")
@@ -34,13 +36,15 @@ e_Scale = {10:"震度1", 20:"震度2", 30:"震度3", 40:"震度4", 45:"震度5�
 
 @bot.command(brief = "Show Bot Version")
 async def ver(ctx):
-    V = "Ver.1.1.0"
+    V = "Ver.1.2.0"
     await ctx.send(V)
 
 @bot.command(brief = "Show list of wng arguments")
 async def l(ctx):
+    msg = "Check link"
     l_url = "https://github.com/J-KITAKATA/weather-warning-get/blob/main/wng-list.txt"
-    await ctx.send(l_url)
+    msg = f"{msg}\n{l_url}"
+    await ctx.send(msg)
 
 @bot.command(
         brief = "<pref:str> [area:str]",
@@ -459,5 +463,89 @@ async def eq(ctx, sc:str = ""):
     outData = f"{h_msg}\n発生時刻：{Occ_time}\n震源地：{EQ_Name}\n震源の深さは{Depth}\nマグニチュードは{Mag}で、最大震度は{M_Scale}\n{G_map}"
 
     await ctx.send(outData)
+
+@bot.command(brief = "[cl:str]", help = "clの引数に対してhを入力すると簡易的な長周期地震動階級の説明を見ることができます")
+async def lgm(ctx, cl:str = ""):
+
+    if cl == "h":
+        t_msg = "**長周期地震動階級の説明**"
+        link = "[長周期地震動について | 気象庁](https://www.jma.go.jp/jma/kishou/know/jishin/choshuki/)"
+        msg = f"{t_msg}\n階級1：やや大きな揺れ\n階級2：大きな揺れ\n階級3：非常に大きな揺れ\n階級4：極めて大きな揺れ\n\n{link}"
+
+    else:
+        # 長周期地震動に関する観測情報のアーカイブサイトにアクセス
+        url = "https://agora.ex.nii.ac.jp/cgi-bin/cps/report_list.pl?type=%E9%95%B7%E5%91%A8%E6%9C%9F%E5%9C%B0%E9%9C%87%E5%8B%95%E3%81%AB%E9%96%A2%E3%81%99%E3%82%8B%E8%A6%B3%E6%B8%AC%E6%83%85%E5%A0%B1"
+        res = requests.get(url)
+        soup = BeautifulSoup(res.text, "html.parser") # サイトのHTMLコードの読み込み
+        elems = soup.find_all(href = re.compile("VXSE62")) # 指定した文字列が含まれる要素を検索
+        url = elems[0].attrs['href'] # hrefに紐づけられてるものを読み取り
+        url = f"https://agora.ex.nii.ac.jp/{url}" # 相対→本来のURLに修正
+
+        # 最新の長周期地震動のデータがある関するサイトにアクセス
+        res = requests.get(url)
+        soup = BeautifulSoup(res.text, "html.parser") # サイトのHTMLコードの読み込み
+        elems = soup.find_all(href = re.compile("VXSE62")) # 指定した文字列が含まれる要素を検索
+        url = elems[1].attrs['href'] # hrefに紐づけられてるものを読み取り
+        url = f"https://agora.ex.nii.ac.jp/{url}" # 相対→本来のURLに修正
+
+        # XMLが記述されているサイトにアクセス
+        res = requests.get(url)
+        soup = BeautifulSoup(res.text, "html.parser") # サイトのHTMLコードの読み込み
+        elems = soup.find("pre") # preタグの内容をタグ込みで取得
+        elems = elems.contents[0] # preタグを消して内容を読み込む
+
+        # 取得できたXMLデータをdictに変換
+        feed_dict= xmltodict.parse(elems)
+
+        Name = feed_dict["Report"]["Body"]["Earthquake"]["Hypocenter"]["Area"]["Name"] # 震源地
+        Mag = feed_dict["Report"]["Body"]["Earthquake"]["jmx_eb:Magnitude"]["#text"] # マグニチュード
+        M_Lg = feed_dict["Report"]["Body"]["Intensity"]["Observation"]["MaxLgInt"] # 最大の長周期地震動階級
+        # Sva（絶対速度応答スペクトル）の全体における最大値
+        Sva = feed_dict["Report"]["Body"]["Intensity"]["Observation"]["Pref"][0]["Area"][0]["IntensityStation"]["Sva"]["#text"]
+        # Svaの単位
+        Sva_unit = feed_dict["Report"]["Body"]["Intensity"]["Observation"]["Pref"][0]["Area"][0]["IntensityStation"]["Sva"]["@unit"]
+        point = feed_dict["Report"]["Body"]["Earthquake"]["Hypocenter"]["Area"]["jmx_eb:Coordinate"]["#text"] # 座標
+        Event_ID = feed_dict["Report"]["Head"]["EventID"] # Event ID
+        Title = feed_dict["Report"]["Head"]["Title"] # Title
+        T_date = feed_dict["Report"]["Head"]["TargetDateTime"] # 発生時刻
+
+        # 文字列の整形
+        point = point.rstrip("/")
+        s_point = re.split(r"(?=[+-])", point) # 記号の手前で分割
+        Lat = s_point[1] # 北緯
+        Lon = s_point[2] # 東経
+        Lat_m = abs(float(Lat))
+        Lon_m = abs(float(Lon))
+
+        # 震源の深さ
+        Depth = s_point[3]
+        Depth = Depth.lstrip("-")
+
+        # 発生時刻の情報整理
+        T_date = T_date.split("+", 1)
+        T_date = T_date[0]
+        T_date = re.sub("T", "  ", T_date)
+
+        if Depth == "0":
+            Depth = "ごく浅い"
+        else:
+            Depth = str(math.floor(int(Depth)/1000))
+            Depth = f"{Depth}km"
+
+        # 座標の表示設定
+        if (Lat_m > 200 or Lat == None or Lat == "") and (Lon_m > 200 or Lon == None or Lon == ""):
+            G_map = ""
+        else:
+            G_map = f"[Google Map](https://www.google.com/maps?q={Lat},{Lon})"
+
+        # マグニチュードの情報を整理
+        if Mag == "-1" or Mag == "" or Mag =="0":
+            Mag = "不明"
+        else:
+            Mag = f"M{Mag}"
+
+        msg = f"**最新の{Title}**\n発生時刻：{T_date}\n震源地：{Name}\n震源の深さは{Depth}\nマグニチュードは{Mag}\n最大長周期地震動階級は{M_Lg}\nSva（絶対速度応答スペクトル）の全体における最大値は{Sva}{Sva_unit}\n[気象庁](https://www.data.jma.go.jp/eew/data/ltpgm/event.php?eventId={Event_ID})\n{G_map}"
+
+    await ctx.send(msg)
 
 bot.run(TOKEN)
