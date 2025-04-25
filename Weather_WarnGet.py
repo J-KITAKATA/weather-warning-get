@@ -35,7 +35,7 @@ e_Scale = {10:"震度1", 20:"震度2", 30:"震度3", 40:"震度4", 45:"震度5�
 
 @bot.command(brief = "Show Bot Version")
 async def ver(ctx):
-    V = "Ver.1.2.1"
+    V = "Ver.1.2.2"
     await ctx.send(V)
 
 @bot.command(brief = "Show list of wng arguments")
