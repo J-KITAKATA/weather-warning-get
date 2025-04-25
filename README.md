@@ -1,5 +1,5 @@
 # Weather Warning Get
-Ver.1.2.1  
+Ver.1.2.2  
 2025/4/26
 
 ## 概要
@@ -26,10 +26,8 @@ Discordでコマンドを入力することで気象庁(Japan Meteorological Age
 * Ver.0.9.1 (2025/4/12)：Bug fix
 * Ver.0.9.2 (2025/4/12)：Add wng command list
 * Ver.0.9.3 (2025/4/18)：Add exception handling
-* Ver.1.0.0 (2025/4/19)：リリース
-* Ver.1.1.0 (2025/4/20)：簡易的な地震の情報表示機能を追加
-* Ver.1.2.0 (2025/4/22)：簡易的な長周期地震動に関する情報表示機能を追加
-* Ver.1.2.1 (2025/4/26)：長周期地震動の情報取得先を変更
+
+Ver.1.0.0 以降のものについては、[リリースページ](https://github.com/J-KITAKATA/weather-warning-get/releases)をご覧ください。
 
 ## その他
 機能の追加やバグ発見などがあれば[Issues](https://github.com/J-KITAKATA/weather-warning-get/issues)で教えてください。
