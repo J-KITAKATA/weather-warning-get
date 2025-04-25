@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 import re
 
 # .envファイルを読み込む
-load_dotenv(dotenv_path="config/test.env")
+load_dotenv(dotenv_path="config/Weather_WrnGet.env")
 # Weather_WrnGet
 
 # 環境変数からトークンを取得
