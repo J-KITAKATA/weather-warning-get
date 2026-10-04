@@ -8,84 +8,166 @@ import json
 area_id = {"CN":"070011", "CC":"070012","CS":"070013", "HN":"070021", "HC":"070022", "HS":"070023", "AN":"070031", "AC":"070032", "AS":"070033"}
 
 # 警報
-warn = {"02":"暴風雪", "03":"大雨", "04":"洪水", "05":"暴風", "06":"大雪", "07":"波浪", "08":"高潮"}
+warn = {"02":"暴風雪", "03":"レベル3大雨", "04":"洪水", "05":"暴風", "06":"大雪", "07":"波浪", "08":"レベル3高潮", "09":"レベル3土砂災害"}
 
 # 注意報
-atn = {"10":"大雨", "12":"大雪", "13":"風雪", "14":"雷", "15":"強風", "16":"波浪", "17":"融雪", "18":"洪水", "19":"高潮", "20":"濃霧", "21":"乾燥", "22":"なだれ", "23":"低温", "24":"霜", "25":"着氷", "26":"着雪", "27":"その他"}
+atn = {"10":"レベル2大雨", "12":"大雪", "13":"風雪", "14":"雷", "15":"強風", "16":"波浪", "17":"融雪", "18":"洪水", "19":"レベル2高潮", "20":"濃霧", "21":"乾燥", "22":"なだれ", "23":"低温", "24":"霜", "25":"着氷", "26":"着雪", "27":"その他", "29":"レベル2土砂災害"}
+
+# 危険警報
+U_warn = {"43":"レベル4大雨", "48":"レベル4高潮", "49":"レベル4土砂災害"}
 
 # 特別警報
-S_warn = {"32":"暴風雪", "33":"大雨", "35":"暴風", "36":"大雪", "37":"波浪", "38":"高潮"}
-
-# キャッシュを保存するファイル名
-CACHE_FILE = "./cache/fukushima_cache.json"
-# フォルダを作成（すでにあればスルー）
-# os.makedirs(os.path.dirname(CACHE_FILE), exist_ok=True)
+S_warn = {"32":"暴風雪", "33":"レベル5大雨", "35":"暴風", "36":"大雪", "37":"波浪", "38":"レベル5高潮", "39":"レベル5土砂災害"}
 
 safe_text = "警報・注意報の発表なし" # 発表されていない時用の出力
 
 pn = "福島県"
 
-def pros(url, area, n_time):
+def search_vpws50(data_list, target_code):
+    """
+    VPWS50のHeadline内にあるInformationをすべて検索し、
+    target_codeに一致するAreaの警報・注意報を取得する。
+    """
+
+    # 結果を格納するリスト
+    atn_data = []
+    warn_data = []
+    U_warn_data = []
+    S_warn_data = []
+
+    # ----------------------------------------
+    # Head → Headline → Information
+    # ----------------------------------------
+    headline = data_list["jmx:Report"]["Head"]["Headline"]
+
+    informations = headline.get("Information", [])
+
+    # Informationが1個しかない場合にも対応
+    if not isinstance(informations, list):
+        informations = [informations]
+
+    # ----------------------------------------
+    # 3種類あるInformationを全部調べる
+    # ----------------------------------------
+    for information in informations:
+
+        items = information.get("Item", [])
+
+        # Itemが1個だけの場合にも対応
+        if not isinstance(items, list):
+            items = [items]
+
+        # ----------------------------------------
+        # Itemを調べる
+        # ----------------------------------------
+        for item in items:
+
+            # Item → Areas → Area
+            areas = item.get("Areas", {}).get("Area", [])
+
+            # Areaが1個だけの場合にも対応
+            if not isinstance(areas, list):
+                areas = [areas]
+
+            # ----------------------------------------
+            # AreaのCodeを調べる
+            # ----------------------------------------
+            for sub_area in areas:
+
+                code = str(sub_area.get("Code", ""))
+
+                # target_codeと一致しなければ次へ
+                if code != str(target_code):
+                    continue
+
+                # ----------------------------------------
+                # 該当AreaのKindを取得
+                # ----------------------------------------
+                kinds = item.get("Kind", [])
+
+                # Kindが1個だけの場合にも対応
+                if not isinstance(kinds, list):
+                    kinds = [kinds]
+
+                # ----------------------------------------
+                # 警報・注意報を分類
+                # ----------------------------------------
+                for kind in kinds:
+
+                    warning_code = kind.get("Code")
+
+                    # Codeが存在しないものは無視
+                    if warning_code is None:
+                        continue
+
+                    warning_code = str(warning_code)
+
+                    # 注意報
+                    if warning_code in atn:
+                        atn_data.append(atn[warning_code])
+
+                    # 警報
+                    elif warning_code in warn:
+                        warn_data.append(warn[warning_code])
+
+                    # 危険警報
+                    elif warning_code in U_warn:
+                        U_warn_data.append(U_warn[warning_code])
+
+                    # 特別警報
+                    elif warning_code in S_warn:
+                        S_warn_data.append(S_warn[warning_code])
+
+    # ----------------------------------------
+    # 重複削除
+    # ----------------------------------------
+    atn_data = list(dict.fromkeys(atn_data))
+    warn_data = list(dict.fromkeys(warn_data))
+    U_warn_data = list(dict.fromkeys(U_warn_data))
+    S_warn_data = list(dict.fromkeys(S_warn_data))
+
+    return atn_data, warn_data, U_warn_data, S_warn_data
+
+def make_warning_text(result):
+    """
+    search_vpws50()の結果を出力用文字列に変換する
+    """
+
+    atn_data, warn_data, U_warn_data, S_warn_data = result
+
+    p_data = ""
+
+    if atn_data:
+        p_data += f"注意報:{', '.join(atn_data)}\n"
+
+    if warn_data:
+        p_data += f"警報:{', '.join(warn_data)}\n"
+
+    if U_warn_data:
+        p_data += f"危険警報:{', '.join(U_warn_data)}\n"
+
+    if S_warn_data:
+        p_data += f"特別警報:{', '.join(S_warn_data)}\n"
+
+    if not atn_data and not warn_data and not U_warn_data and not S_warn_data:
+        p_data += safe_text + "\n"
+
+    return p_data
+
+def pros(CACHE_FILE, area):
     #ローカル変数
-    cached_data = None # キャッシュ用の変数
     # キャッシュ保持時間：630秒
     last_fetched_time = 0 # 最後にデータを取得した時刻（初期値: 0）
     p_data = "" # 文章用変数を初期化
 
-    # 結果を格納するリスト(初期化)
-    atn_data = [] # 注意報
-    warn_data = [] # 警報
-    S_warn_data = [] # 特別警報
-
     os.makedirs(os.path.dirname(CACHE_FILE), exist_ok=True)
 
-    # キャッシュデータをファイルから読み込む
-    # 空でないか確認 and キャッシュファイルが存在するかチェック
-    if os.path.exists(CACHE_FILE) and os.path.getsize(CACHE_FILE) > 0:
-        with open(CACHE_FILE, "r", encoding="utf-8") as f:
-            try:
-                cache_content = json.load(f)  # JSONデータを読み込む
-                cached_data = cache_content.get("data")  # 保存されていたデータを取得
-                last_fetched_time = cache_content.get("timestamp", 0)  # 最後の取得時刻を取得（なければ0）
-            except json.JSONDecodeError: # JSONファイル読み込みエラー時の処理
-                cached_data = None  # JSONが壊れていた場合はNoneに
-                last_fetched_time = 0  # 取得時刻もリセット
-
-    if not url == None:
-        if (n_time - last_fetched_time) > 630:
-            print("(FS)新しいデータを取得中...")
-            # 気象庁のデータフィードURL
-            feed_xml = requests.get(url) # XMLデータを取得
-
-            # XMLデータを解析して文字列に変換
-            feed_soup = str(BeautifulSoup(feed_xml.content, "xml"))
-            feed_dict = xmltodict.parse(feed_soup) # XMLを辞書型（dict）に変換
-
-            # キャッシュを更新
-            cached_data = feed_dict
-            last_fetched_time = n_time
-
-            # キャッシュをファイルに保存
-            with open(CACHE_FILE, "w", encoding="utf-8") as f:
-                json.dump({"timestamp": last_fetched_time, "data": cached_data}, f, ensure_ascii=False, indent=4)
-
-        elif (n_time - last_fetched_time) <= 630:
-            print("(FS)キャッシュデータを使用")
-
-    else:
-        print("No Data")
-
     # キャッシュデータファイルから情報を読み取る
-    if cached_data:
-        with open(CACHE_FILE, mode="r", encoding="utf-8") as f:
-            cache_json = json.load(f) # JSON -> dict型
-    
+    with open(CACHE_FILE, mode="r", encoding="utf-8") as f:
+        cache_json = json.load(f) # JSON -> dict型
+
     # cache_json 内のデータ(data に辞書型で格納)
     data_list = cache_json.get("data", [])
-
-    # 内部データ構造： 
-    # "data":{"jmx.Report":{"Head":{"Headline":{"Information":[]}]}}}}
-    entries = data_list["jmx:Report"]["Head"]["Headline"]["Information"]
 
     #print(entries)
 
@@ -94,178 +176,28 @@ def pros(url, area, n_time):
         p_data = "**" + pn + " 中通り**\n"
         target_code = "070010" # 中通りのターゲットコード
 
-        # entries をループして指定地域のデータを抽出
-        for entry in entries:
-            items = entry.get("Item", [])
-            if not isinstance(items, list):  # Item がリストでない場合はリストに変換
-                items = [items]
+        # 指定地域のデータを抽出
+        result = search_vpws50(data_list, target_code)
 
-            for item in items:
-                area_d = item.get("Areas", {}).get("Area", {})
-                if isinstance(area_d, list):  # Area がリストの場合
-                    for sub_area in area_d:
-                        if sub_area.get("Code") == target_code: # == target_code
-                            kinds = item.get("Kind", [])
-                            if not isinstance(kinds, list):  # Kind がリストでない場合はリストに変換
-                                kinds = [kinds]
-                            for kind in kinds:
-                                code = kind.get("Code")
-                                if code in atn:
-                                    atn_data.append(atn[code])
-                                elif code in warn:
-                                    warn_data.append(warn[code])
-                                elif code in S_warn:
-                                    S_warn_data.append(S_warn[code])
-                elif area_d.get("Code") == target_code:  # Area が辞書の場合
-                    kinds = item.get("Kind", [])
-                    if not isinstance(kinds, list):  # Kind がリストでない場合はリストに変換
-                        kinds = [kinds]
-                    for kind in kinds:
-                        code = kind.get("Code")
-                        if code in atn:
-                            atn_data.append(atn[code])
-                        elif code in warn:
-                            warn_data.append(warn[code])
-                        elif code in S_warn:
-                            S_warn_data.append(S_warn[code])
-
-        #print(atn_data) # debug
-        # 重複を削除
-        atn_data = list(dict.fromkeys(atn_data))
-        warn_data = list(dict.fromkeys(warn_data))
-        S_warn_data = list(dict.fromkeys(S_warn_data))
-
-        # 注意報・警報・特別警報の出力部
-        if atn_data:
-            p_data = p_data + f"注意報:{', '.join(atn_data)}\n"
-        if warn_data:
-            p_data = p_data + f"警報:{', '.join(warn_data)}\n"
-        if S_warn_data:
-            p_data = p_data + f"特別警報:{', '.join(S_warn_data)}\n"
-        if not atn_data and not warn_data and not S_warn_data:
-            p_data = p_data + safe_text + "\n"
+        p_data += make_warning_text(result)
 
         # 浜通り
         p_data = p_data + "\n" + "**" + pn + " 浜通り**\n"
         target_code = "070020" # 浜通りのターゲットコード
 
-        # データ格納部の初期化
-        atn_data = [] # 注意報
-        warn_data = [] # 警報
-        S_warn_data = [] # 特別警報
+        # 指定地域のデータを抽出
+        result = search_vpws50(data_list, target_code)
 
-        # entries をループして指定地域のデータを抽出
-        for entry in entries:
-            items = entry.get("Item", [])
-            if not isinstance(items, list):  # Item がリストでない場合はリストに変換
-                items = [items]
-
-            for item in items:
-                area_d = item.get("Areas", {}).get("Area", {})
-                if isinstance(area_d, list):  # Area がリストの場合
-                    for sub_area in area_d:
-                        if sub_area.get("Code") == target_code: # == target_code
-                            kinds = item.get("Kind", [])
-                            if not isinstance(kinds, list):  # Kind がリストでない場合はリストに変換
-                                kinds = [kinds]
-                            for kind in kinds:
-                                code = kind.get("Code")
-                                if code in atn:
-                                    atn_data.append(atn[code])
-                                elif code in warn:
-                                    warn_data.append(warn[code])
-                                elif code in S_warn:
-                                    S_warn_data.append(S_warn[code])
-                elif area_d.get("Code") == target_code:  # Area が辞書の場合
-                    kinds = item.get("Kind", [])
-                    if not isinstance(kinds, list):  # Kind がリストでない場合はリストに変換
-                        kinds = [kinds]
-                    for kind in kinds:
-                        code = kind.get("Code")
-                        if code in atn:
-                            atn_data.append(atn[code])
-                        elif code in warn:
-                            warn_data.append(warn[code])
-                        elif code in S_warn:
-                            S_warn_data.append(S_warn[code])
-
-        
-        
-        # 重複を削除
-        atn_data = list(dict.fromkeys(atn_data))
-        warn_data = list(dict.fromkeys(warn_data))
-        S_warn_data = list(dict.fromkeys(S_warn_data))
-
-        # 注意報・警報・特別警報の出力部
-        if atn_data:
-            p_data = p_data + f"注意報:{', '.join(atn_data)}\n"
-        if warn_data:
-            p_data = p_data + f"警報:{', '.join(warn_data)}\n"
-        if S_warn_data:
-            p_data = p_data + f"特別警報:{', '.join(S_warn_data)}\n"
-        if not atn_data and not warn_data and not S_warn_data:
-            p_data = p_data + safe_text + "\n"
+        p_data += make_warning_text(result)
 
         # 会津
         p_data = p_data + "\n" + "**" + pn + " 会津**\n"
         target_code = "070030" # 会津のターゲットコード
 
-        # データ格納部の初期化
-        atn_data = [] # 注意報
-        warn_data = [] # 警報
-        S_warn_data = [] # 特別警報
+        # 指定地域のデータを抽出
+        result = search_vpws50(data_list, target_code)
 
-        # entries をループして指定地域のデータを抽出
-        for entry in entries:
-            items = entry.get("Item", [])
-            if not isinstance(items, list):  # Item がリストでない場合はリストに変換
-                items = [items]
-
-            for item in items:
-                area_d = item.get("Areas", {}).get("Area", {})
-                if isinstance(area_d, list):  # Area がリストの場合
-                    for sub_area in area_d:
-                        if sub_area.get("Code") == target_code: # == target_code
-                            kinds = item.get("Kind", [])
-                            if not isinstance(kinds, list):  # Kind がリストでない場合はリストに変換
-                                kinds = [kinds]
-                            for kind in kinds:
-                                code = kind.get("Code")
-                                if code in atn:
-                                    atn_data.append(atn[code])
-                                elif code in warn:
-                                    warn_data.append(warn[code])
-                                elif code in S_warn:
-                                    S_warn_data.append(S_warn[code])
-                elif area_d.get("Code") == target_code:  # Area が辞書の場合
-                    kinds = item.get("Kind", [])
-                    if not isinstance(kinds, list):  # Kind がリストでない場合はリストに変換
-                        kinds = [kinds]
-                    for kind in kinds:
-                        code = kind.get("Code")
-                        if code in atn:
-                            atn_data.append(atn[code])
-                        elif code in warn:
-                            warn_data.append(warn[code])
-                        elif code in S_warn:
-                            S_warn_data.append(S_warn[code])
-
-        
-        
-        # 重複を削除
-        atn_data = list(dict.fromkeys(atn_data))
-        warn_data = list(dict.fromkeys(warn_data))
-        S_warn_data = list(dict.fromkeys(S_warn_data))
-
-        # 注意報・警報・特別警報の出力部
-        if atn_data:
-            p_data = p_data + f"注意報:{', '.join(atn_data)}\n"
-        if warn_data:
-            p_data = p_data + f"警報:{', '.join(warn_data)}\n"
-        if S_warn_data:
-            p_data = p_data + f"特別警報:{', '.join(S_warn_data)}\n"
-        if not atn_data and not warn_data and not S_warn_data:
-            p_data = p_data + safe_text + "\n"
+        p_data += make_warning_text(result)
 
         return p_data
     
@@ -274,55 +206,10 @@ def pros(url, area, n_time):
         p_data = "**" + pn + " 中通り北部**\n"
         target_code = area_id[area] # 中通り北部のターゲットコード
 
-        # entries をループして指定地域のデータを抽出
-        for entry in entries:
-            items = entry.get("Item", [])
-            if not isinstance(items, list):  # Item がリストでない場合はリストに変換
-                items = [items]
+        # 指定地域のデータを抽出
+        result = search_vpws50(data_list, target_code)
 
-            for item in items:
-                area_d = item.get("Areas", {}).get("Area", {})
-                if isinstance(area_d, list):  # Area がリストの場合
-                    for sub_area in area_d:
-                        if sub_area.get("Code") == target_code: # == target_code
-                            kinds = item.get("Kind", [])
-                            if not isinstance(kinds, list):  # Kind がリストでない場合はリストに変換
-                                kinds = [kinds]
-                            for kind in kinds:
-                                code = kind.get("Code")
-                                if code in atn:
-                                    atn_data.append(atn[code])
-                                elif code in warn:
-                                    warn_data.append(warn[code])
-                                elif code in S_warn:
-                                    S_warn_data.append(S_warn[code])
-                elif area_d.get("Code") == target_code:  # Area が辞書の場合
-                    kinds = item.get("Kind", [])
-                    if not isinstance(kinds, list):  # Kind がリストでない場合はリストに変換
-                        kinds = [kinds]
-                    for kind in kinds:
-                        code = kind.get("Code")
-                        if code in atn:
-                            atn_data.append(atn[code])
-                        elif code in warn:
-                            warn_data.append(warn[code])
-                        elif code in S_warn:
-                            S_warn_data.append(S_warn[code])
-
-        # 重複を削除
-        atn_data = list(dict.fromkeys(atn_data))
-        warn_data = list(dict.fromkeys(warn_data))
-        S_warn_data = list(dict.fromkeys(S_warn_data))
-
-        # 注意報・警報・特別警報の出力部
-        if atn_data:
-            p_data = p_data + f"注意報:{', '.join(atn_data)}\n"
-        if warn_data:
-            p_data = p_data + f"警報:{', '.join(warn_data)}\n"
-        if S_warn_data:
-            p_data = p_data + f"特別警報:{', '.join(S_warn_data)}\n"
-        if not atn_data and not warn_data and not S_warn_data:
-            p_data = p_data + safe_text + "\n"
+        p_data += make_warning_text(result)
 
         return p_data
     
@@ -331,55 +218,10 @@ def pros(url, area, n_time):
         p_data = "**" + pn + " 中通り中部**\n"
         target_code = area_id[area] # 中通り中部のターゲットコード
 
-        # entries をループして指定地域のデータを抽出
-        for entry in entries:
-            items = entry.get("Item", [])
-            if not isinstance(items, list):  # Item がリストでない場合はリストに変換
-                items = [items]
+        # 指定地域のデータを抽出
+        result = search_vpws50(data_list, target_code)
 
-            for item in items:
-                area_d = item.get("Areas", {}).get("Area", {})
-                if isinstance(area_d, list):  # Area がリストの場合
-                    for sub_area in area_d:
-                        if sub_area.get("Code") == target_code: # == target_code
-                            kinds = item.get("Kind", [])
-                            if not isinstance(kinds, list):  # Kind がリストでない場合はリストに変換
-                                kinds = [kinds]
-                            for kind in kinds:
-                                code = kind.get("Code")
-                                if code in atn:
-                                    atn_data.append(atn[code])
-                                elif code in warn:
-                                    warn_data.append(warn[code])
-                                elif code in S_warn:
-                                    S_warn_data.append(S_warn[code])
-                elif area_d.get("Code") == target_code:  # Area が辞書の場合
-                    kinds = item.get("Kind", [])
-                    if not isinstance(kinds, list):  # Kind がリストでない場合はリストに変換
-                        kinds = [kinds]
-                    for kind in kinds:
-                        code = kind.get("Code")
-                        if code in atn:
-                            atn_data.append(atn[code])
-                        elif code in warn:
-                            warn_data.append(warn[code])
-                        elif code in S_warn:
-                            S_warn_data.append(S_warn[code])
-
-        # 重複を削除
-        atn_data = list(dict.fromkeys(atn_data))
-        warn_data = list(dict.fromkeys(warn_data))
-        S_warn_data = list(dict.fromkeys(S_warn_data))
-
-        # 注意報・警報・特別警報の出力部
-        if atn_data:
-            p_data = p_data + f"注意報:{', '.join(atn_data)}\n"
-        if warn_data:
-            p_data = p_data + f"警報:{', '.join(warn_data)}\n"
-        if S_warn_data:
-            p_data = p_data + f"特別警報:{', '.join(S_warn_data)}\n"
-        if not atn_data and not warn_data and not S_warn_data:
-            p_data = p_data + safe_text + "\n"
+        p_data += make_warning_text(result)
 
         return p_data
     
@@ -388,55 +230,10 @@ def pros(url, area, n_time):
         p_data = "**" + pn + " 中通り南部**\n"
         target_code = area_id[area] # 中通り南部のターゲットコード
 
-        # entries をループして指定地域のデータを抽出
-        for entry in entries:
-            items = entry.get("Item", [])
-            if not isinstance(items, list):  # Item がリストでない場合はリストに変換
-                items = [items]
+        # 指定地域のデータを抽出
+        result = search_vpws50(data_list, target_code)
 
-            for item in items:
-                area_d = item.get("Areas", {}).get("Area", {})
-                if isinstance(area_d, list):  # Area がリストの場合
-                    for sub_area in area_d:
-                        if sub_area.get("Code") == target_code: # == target_code
-                            kinds = item.get("Kind", [])
-                            if not isinstance(kinds, list):  # Kind がリストでない場合はリストに変換
-                                kinds = [kinds]
-                            for kind in kinds:
-                                code = kind.get("Code")
-                                if code in atn:
-                                    atn_data.append(atn[code])
-                                elif code in warn:
-                                    warn_data.append(warn[code])
-                                elif code in S_warn:
-                                    S_warn_data.append(S_warn[code])
-                elif area_d.get("Code") == target_code:  # Area が辞書の場合
-                    kinds = item.get("Kind", [])
-                    if not isinstance(kinds, list):  # Kind がリストでない場合はリストに変換
-                        kinds = [kinds]
-                    for kind in kinds:
-                        code = kind.get("Code")
-                        if code in atn:
-                            atn_data.append(atn[code])
-                        elif code in warn:
-                            warn_data.append(warn[code])
-                        elif code in S_warn:
-                            S_warn_data.append(S_warn[code])
-
-        # 重複を削除
-        atn_data = list(dict.fromkeys(atn_data))
-        warn_data = list(dict.fromkeys(warn_data))
-        S_warn_data = list(dict.fromkeys(S_warn_data))
-
-        # 注意報・警報・特別警報の出力部
-        if atn_data:
-            p_data = p_data + f"注意報:{', '.join(atn_data)}\n"
-        if warn_data:
-            p_data = p_data + f"警報:{', '.join(warn_data)}\n"
-        if S_warn_data:
-            p_data = p_data + f"特別警報:{', '.join(S_warn_data)}\n"
-        if not atn_data and not warn_data and not S_warn_data:
-            p_data = p_data + safe_text + "\n"
+        p_data += make_warning_text(result)
 
         return p_data
     
@@ -445,55 +242,10 @@ def pros(url, area, n_time):
         p_data = "**" + pn + " 浜通り北部**\n"
         target_code = area_id[area] # 浜通り北部のターゲットコード
 
-        # entries をループして指定地域のデータを抽出
-        for entry in entries:
-            items = entry.get("Item", [])
-            if not isinstance(items, list):  # Item がリストでない場合はリストに変換
-                items = [items]
+        # 指定地域のデータを抽出
+        result = search_vpws50(data_list, target_code)
 
-            for item in items:
-                area_d = item.get("Areas", {}).get("Area", {})
-                if isinstance(area_d, list):  # Area がリストの場合
-                    for sub_area in area_d:
-                        if sub_area.get("Code") == target_code: # == target_code
-                            kinds = item.get("Kind", [])
-                            if not isinstance(kinds, list):  # Kind がリストでない場合はリストに変換
-                                kinds = [kinds]
-                            for kind in kinds:
-                                code = kind.get("Code")
-                                if code in atn:
-                                    atn_data.append(atn[code])
-                                elif code in warn:
-                                    warn_data.append(warn[code])
-                                elif code in S_warn:
-                                    S_warn_data.append(S_warn[code])
-                elif area_d.get("Code") == target_code:  # Area が辞書の場合
-                    kinds = item.get("Kind", [])
-                    if not isinstance(kinds, list):  # Kind がリストでない場合はリストに変換
-                        kinds = [kinds]
-                    for kind in kinds:
-                        code = kind.get("Code")
-                        if code in atn:
-                            atn_data.append(atn[code])
-                        elif code in warn:
-                            warn_data.append(warn[code])
-                        elif code in S_warn:
-                            S_warn_data.append(S_warn[code])
-
-        # 重複を削除
-        atn_data = list(dict.fromkeys(atn_data))
-        warn_data = list(dict.fromkeys(warn_data))
-        S_warn_data = list(dict.fromkeys(S_warn_data))
-
-        # 注意報・警報・特別警報の出力部
-        if atn_data:
-            p_data = p_data + f"注意報:{', '.join(atn_data)}\n"
-        if warn_data:
-            p_data = p_data + f"警報:{', '.join(warn_data)}\n"
-        if S_warn_data:
-            p_data = p_data + f"特別警報:{', '.join(S_warn_data)}\n"
-        if not atn_data and not warn_data and not S_warn_data:
-            p_data = p_data + safe_text + "\n"
+        p_data += make_warning_text(result)
 
         return p_data
     
@@ -502,55 +254,10 @@ def pros(url, area, n_time):
         p_data = "**" + pn + " 浜通り中部**\n"
         target_code = area_id[area] # 浜通り中部のターゲットコード
 
-        # entries をループして指定地域のデータを抽出
-        for entry in entries:
-            items = entry.get("Item", [])
-            if not isinstance(items, list):  # Item がリストでない場合はリストに変換
-                items = [items]
+        # 指定地域のデータを抽出
+        result = search_vpws50(data_list, target_code)
 
-            for item in items:
-                area_d = item.get("Areas", {}).get("Area", {})
-                if isinstance(area_d, list):  # Area がリストの場合
-                    for sub_area in area_d:
-                        if sub_area.get("Code") == target_code: # == target_code
-                            kinds = item.get("Kind", [])
-                            if not isinstance(kinds, list):  # Kind がリストでない場合はリストに変換
-                                kinds = [kinds]
-                            for kind in kinds:
-                                code = kind.get("Code")
-                                if code in atn:
-                                    atn_data.append(atn[code])
-                                elif code in warn:
-                                    warn_data.append(warn[code])
-                                elif code in S_warn:
-                                    S_warn_data.append(S_warn[code])
-                elif area_d.get("Code") == target_code:  # Area が辞書の場合
-                    kinds = item.get("Kind", [])
-                    if not isinstance(kinds, list):  # Kind がリストでない場合はリストに変換
-                        kinds = [kinds]
-                    for kind in kinds:
-                        code = kind.get("Code")
-                        if code in atn:
-                            atn_data.append(atn[code])
-                        elif code in warn:
-                            warn_data.append(warn[code])
-                        elif code in S_warn:
-                            S_warn_data.append(S_warn[code])
-
-        # 重複を削除
-        atn_data = list(dict.fromkeys(atn_data))
-        warn_data = list(dict.fromkeys(warn_data))
-        S_warn_data = list(dict.fromkeys(S_warn_data))
-
-        # 注意報・警報・特別警報の出力部
-        if atn_data:
-            p_data = p_data + f"注意報:{', '.join(atn_data)}\n"
-        if warn_data:
-            p_data = p_data + f"警報:{', '.join(warn_data)}\n"
-        if S_warn_data:
-            p_data = p_data + f"特別警報:{', '.join(S_warn_data)}\n"
-        if not atn_data and not warn_data and not S_warn_data:
-            p_data = p_data + safe_text + "\n"
+        p_data += make_warning_text(result)
 
         return p_data
     
@@ -559,55 +266,10 @@ def pros(url, area, n_time):
         p_data = "**" + pn + " 浜通り南部**\n"
         target_code = area_id[area] # 浜通り南部のターゲットコード
 
-        # entries をループして指定地域のデータを抽出
-        for entry in entries:
-            items = entry.get("Item", [])
-            if not isinstance(items, list):  # Item がリストでない場合はリストに変換
-                items = [items]
+        # 指定地域のデータを抽出
+        result = search_vpws50(data_list, target_code)
 
-            for item in items:
-                area_d = item.get("Areas", {}).get("Area", {})
-                if isinstance(area_d, list):  # Area がリストの場合
-                    for sub_area in area_d:
-                        if sub_area.get("Code") == target_code: # == target_code
-                            kinds = item.get("Kind", [])
-                            if not isinstance(kinds, list):  # Kind がリストでない場合はリストに変換
-                                kinds = [kinds]
-                            for kind in kinds:
-                                code = kind.get("Code")
-                                if code in atn:
-                                    atn_data.append(atn[code])
-                                elif code in warn:
-                                    warn_data.append(warn[code])
-                                elif code in S_warn:
-                                    S_warn_data.append(S_warn[code])
-                elif area_d.get("Code") == target_code:  # Area が辞書の場合
-                    kinds = item.get("Kind", [])
-                    if not isinstance(kinds, list):  # Kind がリストでない場合はリストに変換
-                        kinds = [kinds]
-                    for kind in kinds:
-                        code = kind.get("Code")
-                        if code in atn:
-                            atn_data.append(atn[code])
-                        elif code in warn:
-                            warn_data.append(warn[code])
-                        elif code in S_warn:
-                            S_warn_data.append(S_warn[code])
-
-        # 重複を削除
-        atn_data = list(dict.fromkeys(atn_data))
-        warn_data = list(dict.fromkeys(warn_data))
-        S_warn_data = list(dict.fromkeys(S_warn_data))
-
-        # 注意報・警報・特別警報の出力部
-        if atn_data:
-            p_data = p_data + f"注意報:{', '.join(atn_data)}\n"
-        if warn_data:
-            p_data = p_data + f"警報:{', '.join(warn_data)}\n"
-        if S_warn_data:
-            p_data = p_data + f"特別警報:{', '.join(S_warn_data)}\n"
-        if not atn_data and not warn_data and not S_warn_data:
-            p_data = p_data + safe_text + "\n"
+        p_data += make_warning_text(result)
 
         return p_data
     
@@ -616,55 +278,10 @@ def pros(url, area, n_time):
         p_data = "**" + pn + " 会津北部**\n"
         target_code = area_id[area] # 会津北部のターゲットコード
 
-        # entries をループして指定地域のデータを抽出
-        for entry in entries:
-            items = entry.get("Item", [])
-            if not isinstance(items, list):  # Item がリストでない場合はリストに変換
-                items = [items]
+        # 指定地域のデータを抽出
+        result = search_vpws50(data_list, target_code)
 
-            for item in items:
-                area_d = item.get("Areas", {}).get("Area", {})
-                if isinstance(area_d, list):  # Area がリストの場合
-                    for sub_area in area_d:
-                        if sub_area.get("Code") == target_code: # == target_code
-                            kinds = item.get("Kind", [])
-                            if not isinstance(kinds, list):  # Kind がリストでない場合はリストに変換
-                                kinds = [kinds]
-                            for kind in kinds:
-                                code = kind.get("Code")
-                                if code in atn:
-                                    atn_data.append(atn[code])
-                                elif code in warn:
-                                    warn_data.append(warn[code])
-                                elif code in S_warn:
-                                    S_warn_data.append(S_warn[code])
-                elif area_d.get("Code") == target_code:  # Area が辞書の場合
-                    kinds = item.get("Kind", [])
-                    if not isinstance(kinds, list):  # Kind がリストでない場合はリストに変換
-                        kinds = [kinds]
-                    for kind in kinds:
-                        code = kind.get("Code")
-                        if code in atn:
-                            atn_data.append(atn[code])
-                        elif code in warn:
-                            warn_data.append(warn[code])
-                        elif code in S_warn:
-                            S_warn_data.append(S_warn[code])
-
-        # 重複を削除
-        atn_data = list(dict.fromkeys(atn_data))
-        warn_data = list(dict.fromkeys(warn_data))
-        S_warn_data = list(dict.fromkeys(S_warn_data))
-
-        # 注意報・警報・特別警報の出力部
-        if atn_data:
-            p_data = p_data + f"注意報:{', '.join(atn_data)}\n"
-        if warn_data:
-            p_data = p_data + f"警報:{', '.join(warn_data)}\n"
-        if S_warn_data:
-            p_data = p_data + f"特別警報:{', '.join(S_warn_data)}\n"
-        if not atn_data and not warn_data and not S_warn_data:
-            p_data = p_data + safe_text + "\n"
+        p_data += make_warning_text(result)
 
         return p_data
     
@@ -673,55 +290,10 @@ def pros(url, area, n_time):
         p_data = "**" + pn + " 会津中部**\n"
         target_code = area_id[area] # 会津中部のターゲットコード
 
-        # entries をループして指定地域のデータを抽出
-        for entry in entries:
-            items = entry.get("Item", [])
-            if not isinstance(items, list):  # Item がリストでない場合はリストに変換
-                items = [items]
+        # 指定地域のデータを抽出
+        result = search_vpws50(data_list, target_code)
 
-            for item in items:
-                area_d = item.get("Areas", {}).get("Area", {})
-                if isinstance(area_d, list):  # Area がリストの場合
-                    for sub_area in area_d:
-                        if sub_area.get("Code") == target_code: # == target_code
-                            kinds = item.get("Kind", [])
-                            if not isinstance(kinds, list):  # Kind がリストでない場合はリストに変換
-                                kinds = [kinds]
-                            for kind in kinds:
-                                code = kind.get("Code")
-                                if code in atn:
-                                    atn_data.append(atn[code])
-                                elif code in warn:
-                                    warn_data.append(warn[code])
-                                elif code in S_warn:
-                                    S_warn_data.append(S_warn[code])
-                elif area_d.get("Code") == target_code:  # Area が辞書の場合
-                    kinds = item.get("Kind", [])
-                    if not isinstance(kinds, list):  # Kind がリストでない場合はリストに変換
-                        kinds = [kinds]
-                    for kind in kinds:
-                        code = kind.get("Code")
-                        if code in atn:
-                            atn_data.append(atn[code])
-                        elif code in warn:
-                            warn_data.append(warn[code])
-                        elif code in S_warn:
-                            S_warn_data.append(S_warn[code])
-
-        # 重複を削除
-        atn_data = list(dict.fromkeys(atn_data))
-        warn_data = list(dict.fromkeys(warn_data))
-        S_warn_data = list(dict.fromkeys(S_warn_data))
-
-        # 注意報・警報・特別警報の出力部
-        if atn_data:
-            p_data = p_data + f"注意報:{', '.join(atn_data)}\n"
-        if warn_data:
-            p_data = p_data + f"警報:{', '.join(warn_data)}\n"
-        if S_warn_data:
-            p_data = p_data + f"特別警報:{', '.join(S_warn_data)}\n"
-        if not atn_data and not warn_data and not S_warn_data:
-            p_data = p_data + safe_text + "\n"
+        p_data += make_warning_text(result)
 
         return p_data
     
@@ -730,55 +302,10 @@ def pros(url, area, n_time):
         p_data = "**" + pn + " 会津南部**\n"
         target_code = area_id[area] # 会津南部のターゲットコード
 
-        # entries をループして指定地域のデータを抽出
-        for entry in entries:
-            items = entry.get("Item", [])
-            if not isinstance(items, list):  # Item がリストでない場合はリストに変換
-                items = [items]
+        # 指定地域のデータを抽出
+        result = search_vpws50(data_list, target_code)
 
-            for item in items:
-                area_d = item.get("Areas", {}).get("Area", {})
-                if isinstance(area_d, list):  # Area がリストの場合
-                    for sub_area in area_d:
-                        if sub_area.get("Code") == target_code: # == target_code
-                            kinds = item.get("Kind", [])
-                            if not isinstance(kinds, list):  # Kind がリストでない場合はリストに変換
-                                kinds = [kinds]
-                            for kind in kinds:
-                                code = kind.get("Code")
-                                if code in atn:
-                                    atn_data.append(atn[code])
-                                elif code in warn:
-                                    warn_data.append(warn[code])
-                                elif code in S_warn:
-                                    S_warn_data.append(S_warn[code])
-                elif area_d.get("Code") == target_code:  # Area が辞書の場合
-                    kinds = item.get("Kind", [])
-                    if not isinstance(kinds, list):  # Kind がリストでない場合はリストに変換
-                        kinds = [kinds]
-                    for kind in kinds:
-                        code = kind.get("Code")
-                        if code in atn:
-                            atn_data.append(atn[code])
-                        elif code in warn:
-                            warn_data.append(warn[code])
-                        elif code in S_warn:
-                            S_warn_data.append(S_warn[code])
-
-        # 重複を削除
-        atn_data = list(dict.fromkeys(atn_data))
-        warn_data = list(dict.fromkeys(warn_data))
-        S_warn_data = list(dict.fromkeys(S_warn_data))
-
-        # 注意報・警報・特別警報の出力部
-        if atn_data:
-            p_data = p_data + f"注意報:{', '.join(atn_data)}\n"
-        if warn_data:
-            p_data = p_data + f"警報:{', '.join(warn_data)}\n"
-        if S_warn_data:
-            p_data = p_data + f"特別警報:{', '.join(S_warn_data)}\n"
-        if not atn_data and not warn_data and not S_warn_data:
-            p_data = p_data + safe_text + "\n"
+        p_data += make_warning_text(result)
 
         return p_data
     
