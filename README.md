@@ -1,6 +1,6 @@
 # Weather Warning Get
-Ver.1.2.2  
-2025/4/26
+Ver.2.0.0  
+2026/10/4
 
 ## 概要
 Discordでコマンドを入力することで気象庁(Japan Meteorological Agency)が提供している情報を基に気象警報等の情報をチャット上に表示するBotの作成を目指した。   
