@@ -11,6 +11,8 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 import re
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 # .envファイルを読み込む
 load_dotenv(dotenv_path="config/Weather_WrnGet.env")
@@ -35,7 +37,7 @@ e_Scale = {10:"震度1", 20:"震度2", 30:"震度3", 40:"震度4", 45:"震度5�
 
 @bot.command(brief = "Show Bot Version")
 async def ver(ctx):
-    V = "Ver.1.2.2"
+    V = "Ver.2.0.0"
     await ctx.send(V)
 
 @bot.command(brief = "Show list of wng arguments")
@@ -56,17 +58,16 @@ async def wng(ctx, pref:str, area:str = ""):
     area = area.upper()
 
     # キャッシュを保存するファイル名
-    CACHE_FILE = "cache/main_cache.json"
+    CACHE_FILE = "cache/main_cache_VPWN50.json"
     # フォルダを作成（すでにあればスルー）
     os.makedirs(os.path.dirname(CACHE_FILE), exist_ok=True)
-
-    pref_url = None # 各都道府県のURL格納場所
 
     # キャッシュ用の変数
     cached_data = None
     last_fetched_time = 0  # 最後にデータを取得した時刻（初期値: 0）
 
-    current_time = time.time() # 現在時刻
+    current_time = datetime.now(ZoneInfo("Asia/Tokyo"))  # 現在時刻
+    current_time = int(current_time.timestamp())  # タイムスタンプに変換
 
     outData = None # 出力データ用
 
@@ -79,271 +80,256 @@ async def wng(ctx, pref:str, area:str = ""):
         with open(CACHE_FILE, "r", encoding="utf-8") as f:
             try:
                 cache_content = json.load(f)  # JSONデータを読み込む
-                cached_data = cache_content.get("data")  # 保存されていたデータを取得
-                last_fetched_time = cache_content.get("timestamp", 0)  # 最後の取得時刻を取得（なければ0）
+                cached_data = cache_content.get("data") # 保存されていたデータを取得
+                last_fetched_time = cache_content.get("timestamp", 0) # 最後の取得時刻を取得
+
             except json.JSONDecodeError: # JSONファイル読み込みエラー時の処理
                 cached_data = None  # JSONが壊れていた場合はNoneに
                 last_fetched_time = 0  # 取得時刻もリセット
 
-    # 最後に情報を取得してから630秒経っていたら新しくダウンロードする
-    if (current_time - last_fetched_time) > 630:
+    time_def = current_time - last_fetched_time # 時間差を計算
+
+    # 最後に取得した情報が通報されてから630秒経っていたら新しくダウンロードする
+    if (time_def > 630) or (last_fetched_time == 0):
         print("新しいデータを取得中...") #debug
         # 気象庁のデータフィードURL
-        feed_url = 'https://www.data.jma.go.jp/developer/xml/feed/extra_l.xml'
+        # feed_url = 'https://www.data.jma.go.jp/developer/xml/feed/extra_l.xml' # X 長期臨時
+        feed_url = 'https://www.data.jma.go.jp/developer/xml/feed/regular_l.xml' # 長期定時
         feed_xml = requests.get(feed_url) # XMLデータを取得
 
         # XMLデータを解析して文字列に変換
         feed_soup = str(BeautifulSoup(feed_xml.content, "xml"))
         feed_dict = xmltodict.parse(feed_soup) # XMLを辞書型（dict）に変換
 
-        # キャッシュを更新
+        # VPWS50 のデータを取得
+        feed_url = feed_dict["feed"]["entry"][0]["id"]
+        feed_xml = requests.get(feed_url) # XMLデータを取得
+
+        # XMLデータを解析して文字列に変換
+        feed_soup = str(BeautifulSoup(feed_xml.content, "xml"))
+        feed_dict = xmltodict.parse(feed_soup) # XMLを辞書型（dict）に変換
+
+        # ←ここで保存
         cached_data = feed_dict
-        last_fetched_time = current_time
+
+        # 時刻の更新
+        print(feed_dict["jmx:Report"]["jmx:Control"].keys())
+        datatime = feed_dict["jmx:Report"]["jmx:Control"]["jmx:DateTime"] # データの更新時刻を取得
+        if datatime.endswith("Z"):
+            datatime = datatime.replace("Z", "+00:00")  # 'Z'をUTCであることを示すために+0hに置き換え
+        dt_utc = datetime.fromisoformat(datatime)  # ISO形式の文字列をdatetimeオブジェクトに変換
+        last_fetched_time = dt_utc.astimezone(ZoneInfo("Asia/Tokyo"))  # UTCからJSTに変換
+        last_fetched_time = int(last_fetched_time.timestamp())  # タイムスタンプに変換
 
         # キャッシュをファイルに保存
         with open(CACHE_FILE, "w", encoding="utf-8") as f:
             json.dump({"timestamp": last_fetched_time, "data": cached_data}, f, ensure_ascii=False, indent=4)
 
-    elif (current_time - last_fetched_time) <= 630:
+    elif (time_def <= 630):
         print("キャッシュデータを使用") # debug
+    
+    ########### note ###########
+    # 時間計算に関して、timestampを使うことで、タイムゾーンの違いを気にせずに計算できるが、
+    # 意図しないバグの予防と、デバッグ時の可読性向上のため、タイムゾーンを明示的に指定したうえで
+    # 時間差の計算を行っている。
+    ############################
 
     # 取得したデータをtxtファイルに保存（デバッグやログ用）
     #with open("test_sample.txt", "w", encoding="utf-8") as f:
     #    f.write(str(cached_data))
 
-    # cached_dataの中身を処理
-    # cached_data の構造を確認し、"id" を取り出す処理
-    if cached_data:
-
-        # prefがpref_idに存在しないときに例外処理を実行させる
-        if pref not in  pref_id:
-            pref_url = None
-            pass
-
-        else:
-            # 本当は r はいらないけど、後から見たら忘れるから書く
-            # JSONファイルをUTF-8の文字コードに指定して読み込み
-            # dict型で処理したいからあえてJSONの再読み込みを実施
-            with open(CACHE_FILE, mode='r', encoding='utf-8') as f: 
-                cache_json = json.load(f) # JSON -> dict型
-
-            # cache_json 内のデータ（仮に data にリストが格納されていると仮定）
-            data_list = cache_json.get("data", [])
-
-            # "data" 内の各要素から "id" を取り出す
-            # 実際のデータは "feed":{"entry":[{}, {}]} の構造になっている
-            entries = data_list["feed"]["entry"]
-
-            # 条件に一致するエントリをフィルタリングし、"updated" フィールドで最新のものを取得
-            latest_entry = max(
-                (item for item in entries if "VPWW53" in item.get("id", "") and pref_id[pref] in item.get("id", "")),
-                key=lambda x: x.get("updated", ""),
-                default=None
-            )
-
-            # 最新エントリの "id" を取得
-            if latest_entry:
-                pref_url = latest_entry.get("id", None)
-            else:
-                pref_url = None
-
-    if pref_url is None:
-        print("該当するURLが見つかりませんでした。")
-    else:
-        print(f"取得したURL: {pref_url}") # debug
-
     # 各地域の処理に移行
     if pref == "SY": # 宗谷地方(北海道)
-        outData = p_d.sy.pros(pref_url, area, current_time)
+        outData = p_d.sy.pros(CACHE_FILE, area)
 
     elif pref == "KM": # 上川地方(北海道)
-        outData = p_d.km.pros(pref_url, area, current_time)
+        outData = p_d.km.pros(CACHE_FILE, area)
 
     elif pref == "RM": # 留萌地方(北海道)
-        outData = p_d.rm.pros(pref_url, area, current_time)
+        outData = p_d.rm.pros(CACHE_FILE, area)
 
     elif pref == "AKM": # 網走・北見・紋別地方(北海道)
-        outData = p_d.akm.pros(pref_url, area, current_time)
+        outData = p_d.akm.pros(CACHE_FILE, area)
 
     elif pref == "NM": # 根室地方(北海道)
-        outData = p_d.nm.pros(pref_url, area, current_time)
+        outData = p_d.nm.pros(CACHE_FILE, area)
 
     elif pref == "KS": # 釧路地方(北海道)
-        outData = p_d.ks.pros(pref_url, area, current_time)
+        outData = p_d.ks.pros(CACHE_FILE, area)
 
     elif pref == "TK": # 十勝地方(北海道)
-        outData = p_d.tk.pros(pref_url, area, current_time)
+        outData = p_d.tk.pros(CACHE_FILE, area)
 
     elif pref == "IB": # 胆振地方(北海道)
-        outData = p_d.ib.pros(pref_url, area, current_time)
+        outData = p_d.ib.pros(CACHE_FILE, area)
 
     elif pref == "HD": # 日高地方(北海道)
-        outData = p_d.hd.pros(pref_url, area, current_time)
+        outData = p_d.hd.pros(CACHE_FILE, area)
 
     elif pref == "ISK": # 石狩地方(北海道)
-        outData = p_d.isk.pros(pref_url, area, current_time)
+        outData = p_d.isk.pros(CACHE_FILE, area)
 
     elif pref == "SR": # 空知地方(北海道)
-        outData = p_d.sr.pros(pref_url, area, current_time)
+        outData = p_d.sr.pros(CACHE_FILE, area)
 
     elif pref == "SB": # 後志地方(北海道)
-        outData = p_d.sb.pros(pref_url, area, current_time)
+        outData = p_d.sb.pros(CACHE_FILE, area)
 
     elif pref == "WS": # 渡島地方(北海道)
-        outData = p_d.ws.pros(pref_url, area, current_time)
+        outData = p_d.ws.pros(CACHE_FILE, area)
 
     elif pref == "HY": # 檜山地方(北海道)
-        outData = p_d.hy.pros(pref_url, area, current_time)
+        outData = p_d.hy.pros(CACHE_FILE, area)
 
     elif pref == "AO": # 青森県
-        outData = p_d.ao.pros(pref_url, area, current_time)
+        outData = p_d.ao.pros(CACHE_FILE, area)
 
     elif pref == "IW": # 岩手県
-        outData = p_d.iw.pros(pref_url, area, current_time)
+        outData = p_d.iw.pros(CACHE_FILE, area)
 
     elif pref == "MG": # 宮城県
-        outData = p_d.mg.pros(pref_url, area, current_time)
+        outData = p_d.mg.pros(CACHE_FILE, area)
 
     elif pref == "AT": # 秋田県
-        outData = p_d.at.pros(pref_url, area, current_time)
+        outData = p_d.at.pros(CACHE_FILE, area)
 
     elif pref == "YA": # 山形県
-        outData = p_d.ya.pros(pref_url, area, current_time)
+        outData = p_d.ya.pros(CACHE_FILE, area)
 
     elif pref == "FS": # 福島県
-        outData = p_d.fs.pros(pref_url, area, current_time)
+        outData = p_d.fs.pros(CACHE_FILE, area)
 
     elif pref == "IG": # 茨城県
-        outData = p_d.ig.pros(pref_url, area, current_time)
+        outData = p_d.ig.pros(CACHE_FILE, area)
 
     elif pref == "TG": # 栃木県
-        outData = p_d.tg.pros(pref_url, area, current_time)
+        outData = p_d.tg.pros(CACHE_FILE, area)
 
     elif pref == "GM": # 群馬県
-        outData = p_d.gm.pros(pref_url, area, current_time)
+        outData = p_d.gm.pros(CACHE_FILE, area)
 
     elif pref == "ST": # 埼玉県
-        outData = p_d.st.pros(pref_url, area, current_time)
+        outData = p_d.st.pros(CACHE_FILE, area)
 
     elif pref == "CB": # 千葉県
-        outData = p_d.cb.pros(pref_url, area, current_time)
+        outData = p_d.cb.pros(CACHE_FILE, area)
 
     elif pref == "TO": # 東京都
-        outData = p_d.to.pros(pref_url, area, current_time)
+        outData = p_d.to.pros(CACHE_FILE, area)
 
     elif pref == "KN": # 神奈川県
-        outData = p_d.kn.pros(pref_url, area, current_time)
+        outData = p_d.kn.pros(CACHE_FILE, area)
 
     elif pref == "NG": # 新潟県
-        outData = p_d.ng.pros(pref_url, area, current_time)
+        outData = p_d.ng.pros(CACHE_FILE, area)
 
     elif pref == "TY": # 富山県
-        outData = p_d.ty.pros(pref_url, area, current_time)
+        outData = p_d.ty.pros(CACHE_FILE, area)
 
     elif pref == "IK": # 石川県
-        outData = p_d.ik.pros(pref_url, area, current_time)
+        outData = p_d.ik.pros(CACHE_FILE, area)
 
     elif pref == "FI": # 福井県
-        outData = p_d.fi.pros(pref_url, area, current_time)
+        outData = p_d.fi.pros(CACHE_FILE, area)
 
     elif pref == "YN": # 山梨県
-        outData = p_d.yn.pros(pref_url, area, current_time)
+        outData = p_d.yn.pros(CACHE_FILE, area)
 
     elif pref == "NN": # 長野県
-        outData = p_d.nn.pros(pref_url, area, current_time)
+        outData = p_d.nn.pros(CACHE_FILE, area)
 
     elif pref == "GF": # 岐阜県
-        outData = p_d.gf.pros(pref_url, area, current_time)
+        outData = p_d.gf.pros(CACHE_FILE, area)
 
     elif pref == "SZ": # 静岡県
-        outData = p_d.sz.pros(pref_url, area, current_time)
+        outData = p_d.sz.pros(CACHE_FILE, area)
 
     elif pref == "AC": # 愛知県
-        outData = p_d.ac.pros(pref_url, area, current_time)
+        outData = p_d.ac.pros(CACHE_FILE, area)
 
     elif pref == "ME": # 三重県
-        outData = p_d.me.pros(pref_url, area, current_time)
+        outData = p_d.me.pros(CACHE_FILE, area)
 
     elif pref == "SI": # 滋賀県
-        outData = p_d.si.pros(pref_url, area, current_time)
+        outData = p_d.si.pros(CACHE_FILE, area)
 
     elif pref == "KT": # 京都府
-        outData = p_d.kt.pros(pref_url, area, current_time)
+        outData = p_d.kt.pros(CACHE_FILE, area)
 
     elif pref == "OS": # 大阪府
-        outData = p_d.os.pros(pref_url, area, current_time)
+        outData = p_d.os.pros(CACHE_FILE, area)
 
     elif pref == "HG": # 兵庫県
-        outData = p_d.hg.pros(pref_url, area, current_time)
+        outData = p_d.hg.pros(CACHE_FILE, area)
 
     elif pref == "NR": # 奈良県
-        outData = p_d.nr.pros(pref_url, area, current_time)
+        outData = p_d.nr.pros(CACHE_FILE, area)
 
     elif pref == "WK": # 和歌山県
-        outData = p_d.wk.pros(pref_url, area, current_time)
+        outData = p_d.wk.pros(CACHE_FILE, area)
 
     elif pref == "TT": # 鳥取県
-        outData = p_d.tt.pros(pref_url, area, current_time)
+        outData = p_d.tt.pros(CACHE_FILE, area)
 
     elif pref == "SN": # 島根県
-        outData = p_d.sn.pros(pref_url, area, current_time)
+        outData = p_d.sn.pros(CACHE_FILE, area)
 
     elif pref == "OY": # 岡山県
-        outData = p_d.oy.pros(pref_url, area, current_time)
+        outData = p_d.oy.pros(CACHE_FILE, area)
 
     elif pref == "HS": # 広島県
-        outData = p_d.hs.pros(pref_url, area, current_time)
+        outData = p_d.hs.pros(CACHE_FILE, area)
 
     elif pref == "YU": # 山口県
-        outData = p_d.yu.pros(pref_url, area, current_time)
+        outData = p_d.yu.pros(CACHE_FILE, area)
 
     elif pref == "TS": # 徳島県
-        outData = p_d.ts.pros(pref_url, area, current_time)
+        outData = p_d.ts.pros(CACHE_FILE, area)
 
     elif pref == "KA": # 香川県
-        outData = p_d.ka.pros(pref_url, area, current_time)
+        outData = p_d.ka.pros(CACHE_FILE, area)
 
     elif pref == "EH": # 愛媛県
-        outData = p_d.eh.pros(pref_url, area, current_time)
+        outData = p_d.eh.pros(CACHE_FILE, area)
 
     elif pref == "KC": # 高知県
-        outData = p_d.kc.pros(pref_url, area, current_time)
+        outData = p_d.kc.pros(CACHE_FILE, area)
 
     elif pref == "FO": # 福岡県
-        outData = p_d.fo.pros(pref_url, area, current_time)
+        outData = p_d.fo.pros(CACHE_FILE, area)
 
     elif pref == "SA": # 佐賀県
-        outData = p_d.sa.pros(pref_url, area, current_time)
+        outData = p_d.sa.pros(CACHE_FILE, area)
 
     elif pref == "NS": # 長崎県
-        outData = p_d.ns.pros(pref_url, area, current_time)
+        outData = p_d.ns.pros(CACHE_FILE, area)
 
     elif pref == "KU": # 熊本県
-        outData = p_d.ku.pros(pref_url, area, current_time)
+        outData = p_d.ku.pros(CACHE_FILE, area)
 
     elif pref == "OT": # 大分県
-        outData = p_d.ot.pros(pref_url, area, current_time)
+        outData = p_d.ot.pros(CACHE_FILE, area)
 
     elif pref == "MZ": # 宮崎県
-        outData = p_d.mz.pros(pref_url, area, current_time)
+        outData = p_d.mz.pros(CACHE_FILE, area)
 
     elif pref == "KO": # 鹿児島県(除く：奄美地方)
-        outData = p_d.ko.pros(pref_url, area, current_time)
+        outData = p_d.ko.pros(CACHE_FILE, area)
 
     elif pref == "AM": # 奄美地方(鹿児島県)
-        outData = p_d.am.pros(pref_url, area, current_time)
+        outData = p_d.am.pros(CACHE_FILE, area)
 
     elif pref == "ON": # 沖縄本島地方(沖縄県)
-        outData = p_d.on.pros(pref_url, area, current_time)
+        outData = p_d.on.pros(CACHE_FILE, area)
 
     elif pref == "DT": # 大東島地方(沖縄県)
-        outData = p_d.dt.pros(pref_url, area, current_time)
+        outData = p_d.dt.pros(CACHE_FILE, area)
 
     elif pref == "MK": # 宮古島地方(沖縄県)
-        outData = p_d.mk.pros(pref_url, area, current_time)
+        outData = p_d.mk.pros(CACHE_FILE, area)
 
     elif pref == "YY": # 八重山地方(沖縄県)
-        outData = p_d.yy.pros(pref_url, area, current_time)
+        outData = p_d.yy.pros(CACHE_FILE, area)
 
     else:
         outData = "該当する地域が見つかりませんでした。"
